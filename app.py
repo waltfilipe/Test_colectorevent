@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
+from streamlit_image_coordinates import streamlit_image_coordinates
 
 # ==========================
 # SESSION STATE
@@ -13,58 +14,78 @@ if "last_click" not in st.session_state:
     st.session_state.last_click = None
 
 # ==========================
-# TÍTULO
+# TITLE
 # ==========================
-st.title("📊 Event Tagging Tool")
+st.title("📊 Event Tagging Tool (StatsBomb Pitch)")
 
 # ==========================
-# INPUT DE TEMPO
+# INPUT TEMPO
 # ==========================
-tempo = st.text_input("Tempo do evento (MM:SS)", placeholder="Ex: 10:53")
+tempo = st.text_input("Tempo (MM:SS)", placeholder="Ex: 10:53")
 
 # ==========================
-# DESENHAR CAMPO
+# DESENHAR CAMPO (STATSBOMB)
 # ==========================
-pitch = Pitch(pitch_type='opta', pitch_color='grass', line_color='white')
+pitch = Pitch(
+    pitch_type='statsbomb',
+    pitch_color='#0E1117',
+    line_color='white'
+)
 
-fig, ax = pitch.draw(figsize=(6, 4))
+fig, ax = pitch.draw(figsize=(8, 5))
 
-# Plotar último clique
+# ==========================
+# SETA DE DIREÇÃO
+# ==========================
+ax.annotate(
+    '',
+    xy=(110, 40), xytext=(10, 40),
+    arrowprops=dict(facecolor='white', arrowstyle='->', lw=2)
+)
+
+ax.text(60, 45, "ATAQUE ➡️", color='white', ha='center', fontsize=10)
+
+# ==========================
+# PLOT ÚLTIMO CLIQUE
+# ==========================
 if st.session_state.last_click:
     x, y = st.session_state.last_click
-    ax.scatter(x, y, color='red', s=100)
-
-# Captura clique
-click = st.pyplot(fig, clear_figure=False)
+    ax.scatter(x, y, color='red', s=80)
 
 # ==========================
-# CAPTURA DE COORDENADA
+# CAPTURA CLIQUE
 # ==========================
-# OBS: Streamlit puro não captura clique diretamente,
-# então usamos workaround com coordenadas simuladas
-# (na prática você pode integrar streamlit-image-coordinates)
-
-from streamlit_image_coordinates import streamlit_image_coordinates
-
 coords = streamlit_image_coordinates(fig)
 
 if coords is not None:
-    st.session_state.last_click = (coords["x"], coords["y"])
+    # converter escala da imagem para statsbomb (120x80)
+    img_x = coords["x"]
+    img_y = coords["y"]
 
-# Mostrar coordenadas
+    # dimensões padrão da figura
+    width, height = fig.get_size_inches() * fig.dpi
+
+    x = (img_x / width) * 120
+    y = 80 - (img_y / height) * 80  # inverter eixo Y
+
+    st.session_state.last_click = (round(x, 2), round(y, 2))
+
+# ==========================
+# MOSTRAR COORDENADAS
+# ==========================
 if st.session_state.last_click:
     st.write(f"📍 Coordenadas: {st.session_state.last_click}")
 
 # ==========================
-# FUNÇÃO ADICIONAR EVENTO
+# FUNÇÃO EVENTO
 # ==========================
 def add_event(event):
     if not tempo:
-        st.warning("Digite o tempo antes de salvar.")
+        st.warning("Digite o tempo.")
         return
     
     if not st.session_state.last_click:
-        st.warning("Clique no campo antes de salvar.")
+        st.warning("Clique no campo.")
         return
     
     x, y = st.session_state.last_click
@@ -86,14 +107,14 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("Passe Certo"):
         add_event("Passe_Certo")
-        
+
     if st.button("Passe Longo Certo"):
         add_event("Passe_Longo_Certo")
 
 with col2:
     if st.button("Passe Errado"):
         add_event("Passe_Errado")
-        
+
     if st.button("Passe Longo Errado"):
         add_event("Passe_Longo_Errado")
 
@@ -113,6 +134,6 @@ if not df.empty:
     st.download_button(
         "📥 Baixar CSV",
         csv,
-        "eventos.csv",
+        "eventos_statsbomb.csv",
         "text/csv"
     )

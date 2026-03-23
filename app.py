@@ -1,11 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from mplsoccer import Pitch
-from streamlit_image_coordinates import streamlit_image_coordinates
-from io import BytesIO
-from PIL import Image
-import numpy as np
 
 # ==========================
 # SESSION STATE
@@ -13,100 +7,50 @@ import numpy as np
 if "events" not in st.session_state:
     st.session_state.events = []
 
-if "last_click" not in st.session_state:
-    st.session_state.last_click = None
+# ==========================
+# FUNÇÃO FORMATAR TEMPO
+# ==========================
+def format_time(value):
+    value = value.strip()
+
+    if not value.isdigit():
+        return None
+
+    value = value.zfill(4)  # garante 4 dígitos
+
+    minutes = value[:-2]
+    seconds = value[-2:]
+
+    return f"{int(minutes):02d}:{int(seconds):02d}"
 
 # ==========================
 # TITLE
 # ==========================
-st.title("📊 Event Tagging Tool (StatsBomb)")
+st.title("📊 Event Tagging Tool (Rápido)")
 
 # ==========================
 # INPUT TEMPO
 # ==========================
-tempo = st.text_input("Tempo (MM:SS)", placeholder="Ex: 10:53")
+raw_time = st.text_input("Tempo (digite só números)", placeholder="Ex: 1053 → 10:53")
 
-# ==========================
-# DESENHAR CAMPO
-# ==========================
-pitch = Pitch(
-    pitch_type='statsbomb',
-    pitch_color='#0E1117',
-    line_color='white'
-)
+formatted_time = format_time(raw_time)
 
-fig, ax = pitch.draw(figsize=(8, 5))
-
-# ==========================
-# SETA DIREÇÃO
-# ==========================
-ax.annotate(
-    '',
-    xy=(110, 40), xytext=(10, 40),
-    arrowprops=dict(facecolor='white', arrowstyle='->', lw=2)
-)
-
-ax.text(60, 45, "ATAQUE ➡️", color='white', ha='center', fontsize=10)
-
-# ==========================
-# PLOT ÚLTIMO CLIQUE
-# ==========================
-if st.session_state.last_click:
-    x, y = st.session_state.last_click
-    ax.scatter(x, y, color='red', s=80)
-
-# ==========================
-# FIG → IMAGE (CORRETO)
-# ==========================
-buf = BytesIO()
-fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
-buf.seek(0)
-
-img = Image.open(buf)
-img_array = np.array(img)
-
-height, width = img_array.shape[:2]
-
-# ==========================
-# CAPTURA CLIQUE
-# ==========================
-coords = streamlit_image_coordinates(img_array)
-
-if coords is not None:
-    img_x = coords["x"]
-    img_y = coords["y"]
-
-    # converter para padrão StatsBomb
-    x = (img_x / width) * 120
-    y = 80 - (img_y / height) * 80
-
-    st.session_state.last_click = (round(x, 2), round(y, 2))
-
-# ==========================
-# MOSTRAR COORDENADAS
-# ==========================
-if st.session_state.last_click:
-    st.write(f"📍 Coordenadas: {st.session_state.last_click}")
+if formatted_time:
+    st.success(f"Tempo formatado: {formatted_time}")
+elif raw_time:
+    st.error("Digite apenas números")
 
 # ==========================
 # FUNÇÃO ADICIONAR EVENTO
 # ==========================
 def add_event(event):
-    if not tempo:
-        st.warning("Digite o tempo antes de salvar.")
+    if not formatted_time:
+        st.warning("Digite um tempo válido")
         return
-    
-    if not st.session_state.last_click:
-        st.warning("Clique no campo antes de salvar.")
-        return
-    
-    x, y = st.session_state.last_click
 
     st.session_state.events.append({
-        "tempo": tempo,
-        "evento": event,
-        "x": x,
-        "y": y
+        "tempo": formatted_time,
+        "evento": event
     })
 
 # ==========================
@@ -114,21 +58,25 @@ def add_event(event):
 # ==========================
 st.subheader("Eventos")
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.button("Passe Certo"):
         add_event("Passe_Certo")
 
-    if st.button("Passe Longo Certo"):
-        add_event("Passe_Longo_Certo")
-
-with col2:
     if st.button("Passe Errado"):
         add_event("Passe_Errado")
 
-    if st.button("Passe Longo Errado"):
-        add_event("Passe_Longo_Errado")
+with col2:
+    if st.button("Duelo Vencido"):
+        add_event("Duelo_Vencido")
+
+    if st.button("Duelo Perdido"):
+        add_event("Duelo_Perdido")
+
+with col3:
+    if st.button("Finalização"):
+        add_event("Finalizacao")
 
 # ==========================
 # TABELA
@@ -146,6 +94,6 @@ if not df.empty:
     st.download_button(
         "📥 Baixar CSV",
         csv,
-        "eventos_statsbomb.csv",
+        "eventos.csv",
         "text/csv"
     )

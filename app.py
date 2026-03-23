@@ -31,12 +31,12 @@ st.title("📊 Event Tagging Tool (Rápido)")
 # ==========================
 # INPUT TEMPO
 # ==========================
-raw_time = st.text_input("Tempo (digite só números)", placeholder="Ex: 1053 → 10:53")
+raw_time = st.text_input("Tempo (somente números)", placeholder="Ex: 1053 → 10:53")
 
 formatted_time = format_time(raw_time)
 
 if formatted_time:
-    st.success(f"Tempo formatado: {formatted_time}")
+    st.success(f"Tempo: {formatted_time}")
 elif raw_time:
     st.error("Digite apenas números")
 
@@ -77,6 +77,18 @@ with col2:
 with col3:
     if st.button("Finalização"):
         add_event("Finalizacao")
+
+    if st.button("Outro"):
+        add_event("Outro")
+
+# ==========================
+# BOTÃO CLEAR
+# ==========================
+st.markdown("---")
+
+if st.button("🧹 Limpar Eventos"):
+    st.session_state.events = []
+    st.success("Eventos apagados")
 
 # ==========================
 # TABELA

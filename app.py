@@ -5,6 +5,7 @@ from mplsoccer import Pitch
 from streamlit_image_coordinates import streamlit_image_coordinates
 from io import BytesIO
 from PIL import Image
+import numpy as np
 
 # ==========================
 # SESSION STATE
@@ -37,7 +38,7 @@ pitch = Pitch(
 fig, ax = pitch.draw(figsize=(8, 5))
 
 # ==========================
-# SETA DE DIREÇÃO
+# SETA DIREÇÃO
 # ==========================
 ax.annotate(
     '',
@@ -55,20 +56,21 @@ if st.session_state.last_click:
     ax.scatter(x, y, color='red', s=80)
 
 # ==========================
-# CONVERTER FIG → IMAGEM
+# FIG → IMAGE (CORRETO)
 # ==========================
 buf = BytesIO()
 fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
 buf.seek(0)
 
-# obter dimensões reais da imagem
 img = Image.open(buf)
-width, height = img.size
+img_array = np.array(img)
+
+height, width = img_array.shape[:2]
 
 # ==========================
-# CAPTURAR CLIQUE
+# CAPTURA CLIQUE
 # ==========================
-coords = streamlit_image_coordinates(buf)
+coords = streamlit_image_coordinates(img_array)
 
 if coords is not None:
     img_x = coords["x"]

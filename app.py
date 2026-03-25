@@ -460,4 +460,4 @@ with col_map:
     # Definimos o subtítulo com base no filtro ativo
     label_filtro = " (Apenas para frente)" if apenas_frente else ""
     st.subheader(f"Mapa de Passes{label_filtro}")
-    st.image(draw_pass_map(df_sel, f"Map: {selected_match}"), width=640)
+    st.image(draw_pass_map(df_mapa, f"Mapa: {selected_match}"), width=640)

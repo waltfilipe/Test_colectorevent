@@ -332,13 +332,16 @@ def compute_stats(df: pd.DataFrame) -> dict:
     total = len(df)
     acc = (df["certo"].sum() / total * 100.0) if total else 0.0
     
-    # Progressivos
     prog_tentados = int(df["progressive"].sum())
     prog_acertados = int((df["progressive"] & df["certo"]).sum())
     
-    # Terço Final
     tf_tentados = int(df["into_final_third"].sum())
     tf_acertados = int((df["into_final_third"] & df["certo"]).sum())
+    
+    # NOVAS MÉTRICAS DE DIRECIONAMENTO
+    fwd_count = int(df["forward"].sum())
+    back_count = int(df["backward"].sum())
+    fwd_pct_total = (fwd_count / total * 100.0) if total else 0.0
     
     return {
         "total": total,
@@ -349,11 +352,9 @@ def compute_stats(df: pd.DataFrame) -> dict:
         "prog_acer": prog_acertados,
         "tf_tent": tf_tentados,
         "tf_acer": tf_acertados,
-        "fwd": int(df["forward"].sum()),
-        "fwd_pct": (df["forward"].sum() / total * 100.0) if total else 0.0,
-        "back": int(df["backward"].sum()),
-        "right": int(df["right"].sum()),
-        "left": int(df["left"].sum()),
+        "fwd": fwd_count,
+        "back": back_count,
+        "fwd_total_pct": fwd_pct_total  # % de passes pra frente sobre o total
     }
 
 def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
@@ -431,30 +432,32 @@ if apenas_frente:
 col_stats, col_map = st.columns([1, 2], gap="large")
 
 with col_stats:
-    st.subheader("Estatísticas Gerais")
+    st.subheader("📊 Estatísticas Gerais")
     c1, c2, c3 = st.columns(3)
     c1.metric("Total", stats["total"])
     c2.metric("Acertos", stats["certo"])
     c3.metric("Precisão", f'{stats["acc"]:.1f}%')
     
     st.divider()
-    st.subheader("Passes Progressivos")
+    st.subheader("🚀 Passes Progressivos")
     p1, p2 = st.columns(2)
     p1.metric("Tentados", stats["prog_tent"])
     p2.metric("Acertados", stats["prog_acer"])
     
     st.divider()
-    st.subheader("Entradas Terço Final")
+    st.subheader("🎯 Entradas Terço Final")
     f1, f2 = st.columns(2)
     f1.metric("Tentados", stats["tf_tent"])
     f2.metric("Acertados", stats["tf_acer"])
     
+    # SEÇÃO ALTERADA CONFORME SOLICITADO
     st.divider()
-    st.subheader("Direcionamento")
-    d1, d2 = st.columns(2)
+    st.subheader("↕️ Direcionamento")
+    d1, d2, d3 = st.columns(3)
     d1.metric("Para frente", stats["fwd"])
     d2.metric("Para trás", stats["back"])
-    st.metric("Lado Direito / Esquerdo", f'{stats["right"]} / {stats["left"]}')
+    d3.metric("% Verticalidade", f'{stats["fwd_total_pct"]:.1f}%')
+    st.caption("A porcentagem representa os passes para frente em relação ao total de passes tentados.")
 
 with col_map:
     # Definimos o subtítulo com base no filtro ativo

@@ -17,8 +17,8 @@ st.title("Pass Map Dashboard")
 # ==========================
 GOAL_X = 120
 GOAL_Y = 40
-FINAL_THIRD_LINE_X = 80  # final third line: x=80
-PROGRESSIVE_THRESHOLD = 0.75  # Opta-like progressive rule
+FINAL_THIRD_LINE_X = 80  
+PROGRESSIVE_THRESHOLD = 0.75  
 
 RAW = """
 Angel vs IMG (40 Min)
@@ -282,148 +282,95 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
         return None
 
     for line in lines:
-        match_name = normalize_match_name(line)
-        if match_name is not None:
-            current_match = match_name
+        m_name = normalize_match_name(line)
+        if m_name is not None:
+            current_match = m_name
             matches_lines[current_match] = []
             continue
         if current_match is not None:
             matches_lines[current_match].append(line)
 
-    out: dict[str, pd.DataFrame] = {}
-    for match_name, match_lines in matches_lines.items():
-        pass_success: list[bool] = []
-        coord_points: list[tuple[float, float]] = []
-        for line in match_lines:
+    out = {}
+    for match_name, m_lines in matches_lines.items():
+        pass_success = []
+        coord_points = []
+        for line in m_lines:
             ll = line.strip().lower()
             if TIME_LINE_RE.match(line):
-                if "errado" in ll:
-                    pass_success.append(False)
-                else:
-                    pass_success.append(True)
+                pass_success.append("errado" not in ll)
             cm = COORD_RE.search(line)
             if cm:
-                x = float(cm.group(1))
-                y = float(cm.group(2))
-                coord_points.append((x, y))
+                coord_points.append((float(cm.group(1)), float(cm.group(2))))
 
         coord_pairs = len(coord_points) // 2
         n_passes = min(len(pass_success), coord_pairs)
-        
-        if n_passes == 0:
-            st.warning(f"No passes detected for {match_name}.")
-            continue
-        if len(pass_success) != coord_pairs:
-            st.warning(
-                f"[{match_name}] Mismatch: headers={len(pass_success)}, coord_pairs={coord_pairs}. "
-                f"Using n_passes={n_passes} (truncated)."
-            )
+        if n_passes == 0: continue
 
         passes = []
         for i in range(n_passes):
-            start = coord_points[2 * i]
-            end = coord_points[2 * i + 1]
-            passes.append(
-                {
-                    "numero": i + 1,
-                    "x_start": float(start[0]),
-                    "y_start": float(start[1]),
-                    "x_end": float(end[0]),
-                    "y_end": float(end[1]),
-                    "errado": (not pass_success[i]),
-                }
-            )
+            start, end = coord_points[2 * i], coord_points[2 * i + 1]
+            passes.append({
+                "x_start": start[0], "y_start": start[1],
+                "x_end": end[0], "y_end": end[1],
+                "certo": pass_success[i],
+                "errado": not pass_success[i]
+            })
 
         df = pd.DataFrame(passes)
-        df["certo"] = ~df["errado"]
-        
-        # Regras de campo
-        dist_inicio = np.sqrt((GOAL_X - df["x_start"]) ** 2 + (GOAL_Y - df["y_start"]) ** 2)
-        dist_fim = np.sqrt((GOAL_X - df["x_end"]) ** 2 + (GOAL_Y - df["y_end"]) ** 2)
-        df["progressive"] = dist_fim <= dist_inicio * PROGRESSIVE_THRESHOLD
-        df["into_final_third"] = (df["x_start"] < FINAL_THIRD_LINE_X) & (
-            df["x_end"] >= FINAL_THIRD_LINE_X
-        )
+        dist_i = np.sqrt((GOAL_X - df["x_start"])**2 + (GOAL_Y - df["y_start"])**2)
+        dist_f = np.sqrt((GOAL_X - df["x_end"])**2 + (GOAL_Y - df["y_end"])**2)
+        df["progressive"] = dist_f <= dist_i * PROGRESSIVE_THRESHOLD
+        df["into_final_third"] = (df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)
         df["forward"] = df["x_end"] > df["x_start"]
         df["backward"] = df["x_end"] < df["x_start"]
         df["right"] = df["y_end"] > df["y_start"]
         df["left"] = df["y_end"] < df["y_start"]
-        
         out[match_name] = df
-
     return out
 
 def compute_stats(df: pd.DataFrame) -> dict:
-    total_passes = len(df)
-    successful = int(df["certo"].sum())
-    unsuccessful = int(df["errado"].sum())
-    accuracy = (successful / total_passes * 100.0) if total_passes else 0.0
-    progressive_passes = int(df["progressive"].sum())
-    progressive_pct = (progressive_passes / total_passes * 100.0) if total_passes else 0.0
-    final_third_total = int(df["into_final_third"].sum())
-    final_third_success = int((df["into_final_third"] & ~df["errado"]).sum())
-    final_third_unsuccess = int((df["into_final_third"] & df["errado"]).sum())
-    final_third_accuracy = (
-        final_third_success / final_third_total * 100.0 if final_third_total else 0.0
-    )
-    forward_passes = int(df["forward"].sum())
-    forward_pct_total = (forward_passes / total_passes * 100.0) if total_passes else 0.0
-    backward_passes = int(df["backward"].sum())
-    right_passes = int(df["right"].sum())
-    left_passes = int(df["left"].sum())
+    total = len(df)
+    acc = (df["certo"].sum() / total * 100.0) if total else 0.0
+    
+    # Progressivos
+    prog_tentados = int(df["progressive"].sum())
+    prog_acertados = int((df["progressive"] & df["certo"]).sum())
+    
+    # Terço Final
+    tf_tentados = int(df["into_final_third"].sum())
+    tf_acertados = int((df["into_final_third"] & df["certo"]).sum())
     
     return {
-        "total_passes": total_passes,
-        "successful_passes": successful,
-        "unsuccessful_passes": unsuccessful,
-        "accuracy_pct": accuracy,
-        "progressive_passes": progressive_passes,
-        "progressive_pct": progressive_pct,
-        "final_third_entries": final_third_total,
-        "final_third_success": final_third_success,
-        "final_third_unsuccess": final_third_unsuccess,
-        "final_third_accuracy_pct": final_third_accuracy,
-        "forward_passes": forward_passes,
-        "forward_pct_total": forward_pct_total,
-        "backward_passes": backward_passes,
-        "right_passes": right_passes,
-        "left_passes": left_passes,
+        "total": total,
+        "certo": int(df["certo"].sum()),
+        "errado": int(df["errado"].sum()),
+        "acc": acc,
+        "prog_tent": prog_tentados,
+        "prog_acer": prog_acertados,
+        "tf_tent": tf_tentados,
+        "tf_acer": tf_acertados,
+        "fwd": int(df["forward"].sum()),
+        "fwd_pct": (df["forward"].sum() / total * 100.0) if total else 0.0,
+        "back": int(df["backward"].sum()),
+        "right": int(df["right"].sum()),
+        "left": int(df["left"].sum()),
     }
 
 def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     pitch = Pitch(pitch_type="statsbomb", pitch_color="#f5f5f5", line_color="#4a4a4a")
     fig, ax = pitch.draw(figsize=(6.8, 4.5))
-    fig.set_dpi(100)
     ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.1, alpha=0.25)
     
     for _, row in df.iterrows():
         if row["errado"]:
-            color = (0.95, 0.18, 0.18, 0.70)
-            width = 1.55
-            headwidth = 2.25
-            headlength = 2.25
+            color, width = (0.95, 0.18, 0.18, 0.70), 1.55
         elif row["progressive"]:
-            color = (0.15, 0.50, 1.00, 0.62)
-            width = 1.70
-            headwidth = 2.35
-            headlength = 2.35
+            color, width = (0.15, 0.50, 1.00, 0.62), 1.70
         else:
-            color = (0.78, 0.78, 0.78, 0.22)
-            width = 1.25
-            headwidth = 1.95
-            headlength = 1.95
+            color, width = (0.78, 0.78, 0.78, 0.22), 1.25
             
-        pitch.arrows(
-            row["x_start"],
-            row["y_start"],
-            row["x_end"],
-            row["y_end"],
-            color=color,
-            width=width,
-            headwidth=headwidth,
-            headlength=headlength,
-            ax=ax,
-        )
+        pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
+                     color=color, width=width, headwidth=2, headlength=2, ax=ax)
         
     ax.set_title(title, fontsize=12)
     legend_elements = [
@@ -431,108 +378,57 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
         Line2D([0], [0], color=(0.95, 0.18, 0.18, 0.70), lw=2.5, label="Unsuccessful Pass"),
         Line2D([0], [0], color=(0.78, 0.78, 0.78, 0.22), lw=2.5, label="Successful Pass"),
     ]
-    legend = ax.legend(
-        handles=legend_elements,
-        loc="upper left",
-        bbox_to_anchor=(0.01, 0.99),
-        frameon=True,
-        facecolor="white",
-        edgecolor="#cccccc",
-        shadow=False,
-        fontsize="x-small",
-        borderpad=0.4,
-        labelspacing=0.5,
-    )
-    legend.get_frame().set_alpha(1.0)
+    ax.legend(handles=legend_elements, loc="upper left", fontsize="x-small", frameon=True, facecolor="white")
     
-    arrow = FancyArrowPatch(
-        (0.45, 0.05),
-        (0.55, 0.05),
-        transform=fig.transFigure,
-        arrowstyle="-|>",
-        mutation_scale=15,
-        linewidth=2,
-        color="#333333",
-    )
+    arrow = FancyArrowPatch((0.45, 0.05), (0.55, 0.05), transform=fig.transFigure,
+                             arrowstyle="-|>", mutation_scale=15, linewidth=2, color="#333333")
     fig.patches.append(arrow)
-    fig.text(
-        0.5,
-        0.02,
-        "Attack Direction",
-        ha="center",
-        va="center",
-        fontsize=9,
-        color="#333333",
-    )
-    fig.tight_layout()
+    fig.text(0.5, 0.02, "Attack Direction", ha="center", fontsize=9, color="#333333")
+    
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
     buf.seek(0)
-    img = Image.open(buf).copy()
-    plt.close(fig)
-    return img
+    return Image.open(buf)
 
-# ==========================
-# Build data for dashboard
-# ==========================
+# Main Dashboard Logic
 matches_data = parse_matches(RAW)
-
-if not matches_data:
-    st.error("No matches parsed. Check RAW input format.")
-    st.stop()
-
-# --- NOVIDADE: Adicionando o compilado de todos os jogos ---
-# Concatena todos os DataFrames individuais em um só
 df_all = pd.concat(matches_data.values(), ignore_index=True)
-
-# Cria um novo dicionário garantindo que o compilado seja a primeira opção na lista
-matches_data_with_all = {"Todos os Jogos (Compilado)": df_all}
-matches_data_with_all.update(matches_data)
-matches_data = matches_data_with_all
-# -----------------------------------------------------------
-
-match_names = list(matches_data.keys())
+full_data = {"Todos os Jogos (Compilado)": df_all}
+full_data.update(matches_data)
 
 st.sidebar.header("Match selection")
-selected_match = st.sidebar.radio("Choose a match", match_names, index=0)
-
-df_selected = matches_data[selected_match]
-stats = compute_stats(df_selected)
+selected_match = st.sidebar.radio("Choose a match", list(full_data.keys()), index=0)
+df_sel = full_data[selected_match]
+stats = compute_stats(df_sel)
 
 col_stats, col_map = st.columns([1, 2], gap="large")
 
 with col_stats:
-    st.subheader("Statistics")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Passes", stats["total_passes"])
-    c2.metric("Successful", stats["successful_passes"])
-    c3.metric("Accuracy", f'{stats["accuracy_pct"]:.1f}%')
-    c4.metric("Unsuccessful", stats["unsuccessful_passes"])
+    st.subheader("General Stats")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total", stats["total"])
+    c2.metric("Acertos", stats["certo"])
+    c3.metric("Precisão", f'{stats["acc"]:.1f}%')
     
     st.divider()
-    c5, c6 = st.columns(2)
-    c5.metric("Progressive Passes", stats["progressive_passes"])
-    c6.metric("Progressive % of Total", f'{stats["progressive_pct"]:.1f}%')
+    st.subheader("Progressive Passes")
+    p1, p2 = st.columns(2)
+    p1.metric("Tentados", stats["prog_tent"])
+    p2.metric("Acertados", stats["prog_acer"])
     
     st.divider()
-    st.subheader("Final Third (Entry)")
-    t1, t2, t3, t4 = st.columns(4)
-    t1.metric("Total Entries", stats["final_third_entries"])
-    t2.metric("Successful", stats["final_third_success"])
-    t3.metric("Unsuccessful", stats["final_third_unsuccess"])
-    t4.metric("Accuracy", f'{stats["final_third_accuracy_pct"]:.1f}%')
+    st.subheader("Final Third Entries")
+    f1, f2 = st.columns(2)
+    f1.metric("Tentados", stats["tf_tent"])
+    f2.metric("Acertados", stats["tf_acer"])
     
     st.divider()
-    st.subheader("Pass Directions")
+    st.subheader("Directions")
     d1, d2 = st.columns(2)
-    d1.metric("Forward", stats["forward_passes"])
-    d2.metric("Forward % of Total", f'{stats["forward_pct_total"]:.1f}%')
-    
-    d3, d4 = st.columns(2)
-    d3.metric("Backward", stats["backward_passes"])
-    d4.metric("Right / Left", f'{stats["right_passes"]} / {stats["left_passes"]}')
+    d1.metric("Forward", stats["fwd"])
+    d2.metric("Backward", stats["back"])
+    st.metric("Right / Left", f'{stats["right"]} / {stats["left"]}')
 
 with col_map:
-    img = draw_pass_map(df_selected, title=f"Pass Map - {selected_match}")
     st.subheader("Pass Map")
-    st.image(img, width=640)
+    st.image(draw_pass_map(df_sel, f"Map: {selected_match}"), width=640)

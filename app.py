@@ -69,13 +69,13 @@ x = 48.20, y = 56.79
 5:41 – pass errado OK
 x = 54.85, y = 44.99
 x = 55.18, y = 37.01
-5:50 pass certo OK
+5:50 – pass certo OK
 x = 54.18, y = 73.25
 x = 66.15, y = 78.57
-6:31 pass certo OK
+6:31 – pass certo OK
 x = 22.10, y = 28.36
 x = 36.56, y = 23.88
-7:45 pass certo OK
+7:45 – pass certo OK
 x = 59.83, y = 61.61
 x = 70.31, y = 53.96
 8:43 – pass certo OK
@@ -146,10 +146,10 @@ x = 75.96, y = 37.34
 x = 88.76, y = 31.85
 
 Angel vs Weston (58:20)
-0:13 pass certo OK
-1:50 passe certo OK
+0:13 – pass certo OK
+1:50 – passe certo OK
 6:16 – pass certo OK
-8:14 –pass certo OK
+8:14 – pass certo OK
 15:36 – pass certo OK
 18:22 – pass certo OK
 24:33 – pass certo OK
@@ -199,13 +199,32 @@ x = 43.88, y = 34.02
 x = 40.22, y = 41.50
 x = 23.59, y = 50.14
 x = 77.95, y = 31.36
+x = 92.25, y = 48.31
+x = 85.27, y = 61.28
+x = 96.07, y = 66.10
+x = 34.40, y = 38.67
+x = 26.59, y = 24.87
+x = 44.21, y = 13.90
+x = 34.23, y = 16.89
+x = 45.87, y = 33.68
+x = 37.06, y = 19.05
+x = 55.68, y = 56.12
+x = 71.30, y = 73.58
+x = 30.74, y = 34.35
+x = 16.61, y = 27.03
+x = 64.65, y = 66.76
+x = 69.97, y = 73.58
+x = 33.07, y = 49.48
+x = 24.59, y = 55.46
+x = 48.20, y = 54.13
+x = 60.33, y = 54.96
 
-Angles vs South Florida (1:03
+Angles vs South Florida (1:03)
 03:10 – pass certo OK
 05:20 – pass certo OK
 08:25 – pass errado OK
 10:02 – pass errado OK
-11:45 – pass certo  OK
+11:45 – pass certo OK
 15:57 – pass certo OK
 17:14 – pass certo OK
 17:25 – pass errado OK

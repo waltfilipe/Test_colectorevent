@@ -363,80 +363,101 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     
     for _, row in df.iterrows():
         if row["errado"]:
-            color, width = (0.95, 0.18, 0.18, 0.75), 1.75
+            # Vermelho mais sólido
+            color, width = (0.95, 0.18, 0.18, 0.85), 1.55 
         elif row["progressive"]:
-            color, width = (0.15, 0.50, 1.00, 0.70), 1.90
+            # Azul Progressivo bem destacado (Alpha 0.95)
+            color, width = (0.15, 0.50, 1.00, 0.95), 1.80 
         else:
-            color, width = (0.78, 0.78, 0.78, 0.50), 1.55
+            # Passe Certo comum mais visível (Alpha 0.65)
+            color, width = (0.60, 0.60, 0.60, 0.65), 1.25 
             
         pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
                      color=color, width=width, headwidth=2, headlength=2, ax=ax)
         
-    ax.set_title(title, fontsize=12)
+    ax.set_title(title, fontsize=12, pad=10)
+    
+    # Legenda ajustada para ser opaca (Alpha 1.0)
     legend_elements = [
-        Line2D([0], [0], color=(0.15, 0.50, 1.00, 0.62), lw=2.5, label="Progressive Pass"),
-        Line2D([0], [0], color=(0.95, 0.18, 0.18, 0.70), lw=2.5, label="Unsuccessful Pass"),
-        Line2D([0], [0], color=(0.78, 0.78, 0.78, 0.22), lw=2.5, label="Successful Pass"),
+        Line2D([0], [0], color=(0.15, 0.50, 1.00, 0.95), lw=2.5, label="Passes Progressivos"),
+        Line2D([0], [0], color=(0.95, 0.18, 0.18, 0.85), lw=2.5, label="Passes Errados"),
+        Line2D([0], [0], color=(0.60, 0.60, 0.60, 0.65), lw=2.5, label="Passes Certos"),
     ]
     ax.legend(
-    handles=legend_elements, 
-    loc="upper left", 
-    fontsize="x-small", 
-    frameon=True, 
-    facecolor="white", 
-    framealpha=1.0,  # Adicione isso para remover a transparência
-    edgecolor="black" # Opcional: adiciona uma borda definida
-)
+        handles=legend_elements, 
+        loc="upper left", 
+        fontsize="x-small", 
+        frameon=True, 
+        facecolor="white", 
+        framealpha=1.0,  # Legenda sem transparência
+        edgecolor="#4a4a4a"
+    )
     
     arrow = FancyArrowPatch((0.45, 0.05), (0.55, 0.05), transform=fig.transFigure,
                              arrowstyle="-|>", mutation_scale=15, linewidth=2, color="#333333")
     fig.patches.append(arrow)
-    fig.text(0.5, 0.02, "Attack Direction", ha="center", fontsize=9, color="#333333")
+    fig.text(0.5, 0.02, "Direção do Ataque", ha="center", fontsize=9, color="#333333")
     
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
     buf.seek(0)
     return Image.open(buf)
 
-# Main Dashboard Logic
+# --- Lógica do Dashboard ---
 matches_data = parse_matches(RAW)
 df_all = pd.concat(matches_data.values(), ignore_index=True)
 full_data = {"Todos os Jogos (Compilado)": df_all}
 full_data.update(matches_data)
 
-st.sidebar.header("Match selection")
-selected_match = st.sidebar.radio("Choose a match", list(full_data.keys()), index=0)
+st.sidebar.header("Configurações do Filtro")
+selected_match = st.sidebar.radio("Selecione o Jogo", list(full_data.keys()), index=0)
+
+st.sidebar.divider()
+
+# O NOVO SLICER (Filtro de passes para frente)
+apenas_frente = st.sidebar.checkbox("Mostrar apenas passes para frente", value=False)
+
+# Pegamos os dados originais do jogo selecionado
 df_sel = full_data[selected_match]
+
+# Calculamos as estatísticas SEMPRE sobre o total do jogo (para manter o contexto)
 stats = compute_stats(df_sel)
+
+# Aplicamos o filtro APENAS no DataFrame que será enviado para o MAPA
+df_mapa = df_sel.copy()
+if apenas_frente:
+    df_mapa = df_mapa[df_mapa["forward"] == True]
 
 col_stats, col_map = st.columns([1, 2], gap="large")
 
 with col_stats:
-    st.subheader("General Stats")
+    st.subheader("Estatísticas Gerais")
     c1, c2, c3 = st.columns(3)
     c1.metric("Total", stats["total"])
     c2.metric("Acertos", stats["certo"])
     c3.metric("Precisão", f'{stats["acc"]:.1f}%')
     
     st.divider()
-    st.subheader("Progressive Passes")
+    st.subheader("Passes Progressivos")
     p1, p2 = st.columns(2)
     p1.metric("Tentados", stats["prog_tent"])
     p2.metric("Acertados", stats["prog_acer"])
     
     st.divider()
-    st.subheader("Final Third Entries")
+    st.subheader("Entradas Terço Final")
     f1, f2 = st.columns(2)
     f1.metric("Tentados", stats["tf_tent"])
     f2.metric("Acertados", stats["tf_acer"])
     
     st.divider()
-    st.subheader("Directions")
+    st.subheader("Direcionamento")
     d1, d2 = st.columns(2)
-    d1.metric("Forward", stats["fwd"])
-    d2.metric("Backward", stats["back"])
-    st.metric("Right / Left", f'{stats["right"]} / {stats["left"]}')
+    d1.metric("Para frente", stats["fwd"])
+    d2.metric("Para trás", stats["back"])
+    st.metric("Lado Direito / Esquerdo", f'{stats["right"]} / {stats["left"]}')
 
 with col_map:
-    st.subheader("Pass Map")
-    st.image(draw_pass_map(df_sel, f"Map: {selected_match}"), width=640)
+    # Definimos o subtítulo com base no filtro ativo
+    label_filtro = " (Apenas para frente)" if apenas_frente else ""
+    st.subheader(f"Mapa de Passes{label_filtro}")
+    st.image(draw_pass_map(df_mapa, f"Mapa: {selected_match}"), use_container_width=True)

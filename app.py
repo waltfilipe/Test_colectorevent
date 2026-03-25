@@ -225,39 +225,38 @@ passes_tras = int(df["pra_tras"].sum())
 passes_direita = int(df["pra_direita"].sum())
 passes_esquerda = int(df["pra_esquerda"].sum())
 
-# =====================================
-# Plot (mapa menor + cores fracas)
-# =====================================
+# ==========================
+# Plot (mapa menor + não esticar)
+# ==========================
 pitch = Pitch(pitch_type="statsbomb", pitch_color="#f5f5f5", line_color="#4a4a4a")
-fig, ax = pitch.draw(figsize=(8, 5))  # mapa menor
-
-ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.3, alpha=0.22)
-
+fig, ax = pitch.draw(figsize=(6, 3.6))  # menor de verdade
+ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.1, alpha=0.22)
 for _, row in df.iterrows():
     if row["errado"]:
-        # vermelho fraco
-        color = (0.85, 0.2, 0.2, 0.30)
+        color = (0.85, 0.2, 0.2, 0.30)  # vermelho fraco
         width = 1.6
     elif row["progressivo"]:
-        # azul fraco (progressivo)
-        color = (0.3, 0.4, 0.9, 0.25)
+        color = (0.3, 0.4, 0.9, 0.25)   # azul fraco (progressivo)
         width = 1.8
     else:
-        # cinza bem claro (certos não-progressivos)
-        color = (0.75, 0.75, 0.75, 0.22)
-        width = 1.4
-
+        color = (0.75, 0.75, 0.75, 0.20) # cinza bem claro
+        width = 1.3
     pitch.arrows(
-        row["x_start"],
-        row["y_start"],
-        row["x_end"],
-        row["y_end"],
+        row["x_start"], row["y_start"],
+        row["x_end"], row["y_end"],
         color=color,
         width=width,
-        headwidth=2.4,
-        headlength=2.4,
+        headwidth=2.2,
+        headlength=2.2,
         ax=ax,
     )
+ax.set_title("Pass Map (Compiled)", fontsize=12)
+# força layout sem “folga” excessiva
+fig.tight_layout()
+# coloca no meio (largura menor)
+c_left, c_mid, c_right = st.columns([1, 3, 1])
+with c_mid:
+    st.pyplot(fig, clear_figure=True, use_container_width=False)
 
 ax.set_title("Pass Map (Compiled)")
 

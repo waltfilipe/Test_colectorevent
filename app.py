@@ -177,7 +177,7 @@ with col_map:
 
     # Reference size similar to your duel script
     fig, ax = pitch.draw(figsize=(7.2, 5.0))
-    fig.set_dpi(100)
+    fig.set_dpi(200)
 
     ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.2, alpha=0.25)
 

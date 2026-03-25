@@ -229,8 +229,11 @@ passes_esquerda = int(df["pra_esquerda"].sum())
 # Plot (mapa menor + não esticar)
 # ==========================
 pitch = Pitch(pitch_type="statsbomb", pitch_color="#f5f5f5", line_color="#4a4a4a")
+
 fig, ax = pitch.draw(figsize=(6, 3.6))  # menor de verdade
+
 ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.1, alpha=0.22)
+
 for _, row in df.iterrows():
     if row["errado"]:
         color = (0.85, 0.2, 0.2, 0.30)  # vermelho fraco
@@ -241,6 +244,7 @@ for _, row in df.iterrows():
     else:
         color = (0.75, 0.75, 0.75, 0.20) # cinza bem claro
         width = 1.3
+
     pitch.arrows(
         row["x_start"], row["y_start"],
         row["x_end"], row["y_end"],
@@ -250,9 +254,12 @@ for _, row in df.iterrows():
         headlength=2.2,
         ax=ax,
     )
+
 ax.set_title("Pass Map (Compiled)", fontsize=12)
+
 # força layout sem “folga” excessiva
 fig.tight_layout()
+
 # coloca no meio (largura menor)
 c_left, c_mid, c_right = st.columns([1, 3, 1])
 with c_mid:

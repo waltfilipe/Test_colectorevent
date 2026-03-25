@@ -265,6 +265,6 @@ with col_map:
     buf.seek(0)
     img = Image.open(buf)
 
-    st.image(img, width=640)  # if needed: 560
+    st.image(img, width=800)  # if needed: 560
 
     plt.close(fig)

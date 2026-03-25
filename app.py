@@ -363,11 +363,11 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     
     for _, row in df.iterrows():
         if row["errado"]:
-            color, width = (0.95, 0.18, 0.18, 0.70), 1.75
+            color, width = (0.95, 0.18, 0.18, 0.75), 1.75
         elif row["progressive"]:
-            color, width = (0.15, 0.50, 1.00, 0.62), 1.90
+            color, width = (0.15, 0.50, 1.00, 0.70), 1.90
         else:
-            color, width = (0.78, 0.78, 0.78, 0.22), 1.55
+            color, width = (0.78, 0.78, 0.78, 0.50), 1.55
             
         pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
                      color=color, width=width, headwidth=2, headlength=2, ax=ax)

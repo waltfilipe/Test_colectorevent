@@ -21,9 +21,7 @@ FINAL_THIRD_LINE_X = 80  # Final third line: x=80 (entry: start < 80 and end >= 
 PROGRESSIVE_THRESHOLD = 0.75  # Opta progressive rule (your notebook)
 
 # ==========================
-# INPUT (coords + passes_errados) - already compiled
-# coords = [start1, end1, start2, end2, ...]
-# passes_errados = 1-indexed pass numbers that are "errado"
+# INPUT (coords + passes_errados)
 # ==========================
 coords = [
     (29.25, 20.38),(23.76, 12.9),(14.78, 31.52),(32.57, 41.99),
@@ -90,7 +88,7 @@ df = pd.DataFrame(passes)
 df["errado"] = df["numero"].isin(passes_errados)
 df["certo"] = ~df["errado"]
 
-# Opta-like progressive rule
+# Progressive (Opta rule)
 dist_inicio = np.sqrt((GOAL_X - df["x_start"]) ** 2 + (GOAL_Y - df["y_start"]) ** 2)
 dist_fim = np.sqrt((GOAL_X - df["x_end"]) ** 2 + (GOAL_Y - df["y_end"]) ** 2)
 df["progressivo"] = dist_fim <= dist_inicio * PROGRESSIVE_THRESHOLD
@@ -110,15 +108,17 @@ df["pra_esquerda"] = df["y_end"] < df["y_start"]
 total_passes = len(df)
 passes_certs = int(df["certo"].sum())
 passes_errs = int(df["errado"].sum())
+passes_progressive = int(df["progressivo"].sum())
 
 perc_accuracy = (passes_certs / total_passes * 100.0) if total_passes else 0.0
+perc_progressive = (passes_progressive / total_passes * 100.0) if total_passes else 0.0
 
-passes_into_final_third = int(df["into_final_third"].sum())
+passes_into_final_third_total = int(df["into_final_third"].sum())
 passes_into_final_third_certs = int((df["into_final_third"] & ~df["errado"]).sum())
 passes_into_final_third_errs = int((df["into_final_third"] & df["errado"]).sum())
 perc_accuracy_into_final_third = (
-    passes_into_final_third_certs / passes_into_final_third * 100.0
-    if passes_into_final_third
+    passes_into_final_third_certs / passes_into_final_third_total * 100.0
+    if passes_into_final_third_total
     else 0.0
 )
 
@@ -126,8 +126,7 @@ passes_forward = int(df["pra_frente"].sum())
 passes_backward = int(df["pra_tras"].sum())
 passes_right = int(df["pra_direita"].sum())
 passes_left = int(df["pra_esquerda"].sum())
-
-perc_forward = (passes_forward / total_passes * 100.0) if total_passes else 0.0
+perc_forward_total = (passes_forward / total_passes * 100.0) if total_passes else 0.0
 
 # ==========================
 # Layout: left = stats, right = map
@@ -146,52 +145,59 @@ with col_stats:
 
     st.divider()
 
+    c5, c6 = st.columns(2)
+    c5.metric("Progressive Passes", passes_progressive)
+    c6.metric("Progressive % of Total", f"{perc_progressive:.1f}%")
+
+    st.divider()
+
     st.subheader("Final Third (Entry)")
-    c5, c6, c7, c8 = st.columns(4)
-    c5.metric("Total Entries", passes_into_final_third)
-    c6.metric("Successful", passes_into_final_third_certs)
-    c7.metric("Unsuccessful", passes_into_final_third_errs)
-    c8.metric("Accuracy", f"{perc_accuracy_into_final_third:.1f}%")
+    t1, t2, t3, t4 = st.columns(4)
+    t1.metric("Total Entries", passes_into_final_third_total)
+    t2.metric("Successful", passes_into_final_third_certs)
+    t3.metric("Unsuccessful", passes_into_final_third_errs)
+    t4.metric("Accuracy", f"{perc_accuracy_into_final_third:.1f}%")
 
     st.divider()
 
     st.subheader("Pass Directions")
-    c9, c10 = st.columns(2)
-    c9.metric("Forward", passes_forward)
-    c10.metric("Forward % of Total", f"{perc_forward:.1f}%")
+    d1, d2 = st.columns(2)
+    d1.metric("Forward", passes_forward)
+    d2.metric("Forward % of Total", f"{perc_forward_total:.1f}%")
 
-    c11, c12 = st.columns(2)
-    c11.metric("Backward", passes_backward)
-    c12.metric("Right / Left", f"{passes_right} / {passes_left}")
+    d3, d4 = st.columns(2)
+    d3.metric("Backward", passes_backward)
+    d4.metric("Right / Left", f"{passes_right} / {passes_left}")
 
 # ---- Map (RIGHT)
 with col_map:
     st.subheader("Pass Map")
 
     pitch = Pitch(pitch_type="statsbomb", pitch_color="#f5f5f5", line_color="#4a4a4a")
+
+    # Reference size similar to your duel script
     fig, ax = pitch.draw(figsize=(7.2, 5.0))
     fig.set_dpi(100)
 
-    # Final third line
     ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.2, alpha=0.25)
 
-    # Stronger colors (errado > progressivo > certo)
+    # Stronger colors now (still with faint non-relevant passes)
     for _, row in df.iterrows():
         if row["errado"]:
-            # Weak red -> now a bit stronger
-            color = (0.85, 0.20, 0.20, 0.60)
+            # stronger red
+            color = (0.92, 0.18, 0.18, 0.70)
             width = 1.55
-            headwidth = 2.25
-            headlength = 2.25
+            headwidth = 2.3
+            headlength = 2.3
         elif row["progressivo"]:
-            # Weak blue -> now a bit stronger
-            color = (0.20, 0.55, 0.98, 0.55)
+            # stronger blue
+            color = (0.15, 0.50, 1.00, 0.62)
             width = 1.70
-            headwidth = 2.35
-            headlength = 2.35
+            headwidth = 2.4
+            headlength = 2.4
         else:
-            # Light gray for completed non-progressive
-            color = (0.78, 0.78, 0.78, 0.26)
+            # light gray for successful non-progressive
+            color = (0.76, 0.76, 0.76, 0.22)
             width = 1.25
             headwidth = 1.95
             headlength = 1.95
@@ -210,11 +216,11 @@ with col_map:
 
     ax.set_title("Compiled Pass Map", fontsize=12)
 
-    # Elegant legend (top-left)
+    # Elegant (smaller) legend top-left
     legend_elements = [
-        Line2D([0], [0], color=(0.20, 0.55, 0.98, 0.55), lw=3, label="Progressive Pass"),
-        Line2D([0], [0], color=(0.85, 0.20, 0.20, 0.60), lw=3, label="Unsuccessful Pass"),
-        Line2D([0], [0], color=(0.78, 0.78, 0.78, 0.26), lw=3, label="Successful Pass"),
+        Line2D([0], [0], color=(0.15, 0.50, 1.00, 0.62), lw=2.5, label="Progressive Pass"),
+        Line2D([0], [0], color=(0.92, 0.18, 0.18, 0.70), lw=2.5, label="Unsuccessful Pass"),
+        Line2D([0], [0], color=(0.76, 0.76, 0.76, 0.22), lw=2.5, label="Successful Pass"),
     ]
     legend = ax.legend(
         handles=legend_elements,
@@ -223,14 +229,14 @@ with col_map:
         frameon=True,
         facecolor="white",
         edgecolor="#cccccc",
-        shadow=True,
-        fontsize="small",
-        borderpad=0.8,
-        labelspacing=0.8,
+        shadow=False,
+        fontsize="x-small",
+        labelspacing=0.5,
+        borderpad=0.5,
     )
     legend.get_frame().set_alpha(1.0)
 
-    # Attack direction arrow (middle field, bottom)
+    # Attack Direction arrow (middle-bottom)
     arrow = FancyArrowPatch(
         (0.45, 0.05),
         (0.55, 0.05),
@@ -253,12 +259,12 @@ with col_map:
 
     fig.tight_layout()
 
-    # Render to image with controlled width (prevents oversized layout)
+    # Render to image (bounded size)
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
     buf.seek(0)
     img = Image.open(buf)
 
-    st.image(img, width=640)  # if still too big, reduce to 560
+    st.image(img, width=640)  # if needed: 560
 
     plt.close(fig)

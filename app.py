@@ -378,7 +378,15 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
         Line2D([0], [0], color=(0.95, 0.18, 0.18, 0.70), lw=2.5, label="Unsuccessful Pass"),
         Line2D([0], [0], color=(0.78, 0.78, 0.78, 0.22), lw=2.5, label="Successful Pass"),
     ]
-    ax.legend(handles=legend_elements, loc="upper left", fontsize="x-small", frameon=True, facecolor="white")
+    ax.legend(
+    handles=legend_elements, 
+    loc="upper left", 
+    fontsize="x-small", 
+    frameon=True, 
+    facecolor="white", 
+    framealpha=1.0,  # Adicione isso para remover a transparência
+    edgecolor="black" # Opcional: adiciona uma borda definida
+)
     
     arrow = FancyArrowPatch((0.45, 0.05), (0.55, 0.05), transform=fig.transFigure,
                              arrowstyle="-|>", mutation_scale=15, linewidth=2, color="#333333")

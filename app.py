@@ -380,9 +380,9 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     
     # Legenda ajustada para ser opaca (Alpha 1.0)
     legend_elements = [
-        Line2D([0], [0], color=(0.15, 0.50, 1.00, 0.95), lw=2.5, label="Passes Progressivos"),
-        Line2D([0], [0], color=(0.95, 0.18, 0.18, 0.85), lw=2.5, label="Passes Errados"),
-        Line2D([0], [0], color=(0.60, 0.60, 0.60, 0.65), lw=2.5, label="Passes Certos"),
+        Line2D([0], [0], color=(0.15, 0.50, 1.00, 0.95), lw=2.5, label="Progressive Pass"),
+        Line2D([0], [0], color=(0.95, 0.18, 0.18, 0.85), lw=2.5, label="Unsuccessful Pass"),
+        Line2D([0], [0], color=(0.60, 0.60, 0.60, 0.65), lw=2.5, label="Completed Passs"),
     ]
     ax.legend(
         handles=legend_elements, 
@@ -397,7 +397,7 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     arrow = FancyArrowPatch((0.45, 0.05), (0.55, 0.05), transform=fig.transFigure,
                              arrowstyle="-|>", mutation_scale=15, linewidth=2, color="#333333")
     fig.patches.append(arrow)
-    fig.text(0.5, 0.02, "Direção do Ataque", ha="center", fontsize=9, color="#333333")
+    fig.text(0.5, 0.02, "Attack Direction", ha="center", fontsize=9, color="#333333")
     
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
@@ -407,16 +407,16 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
 # --- Lógica do Dashboard ---
 matches_data = parse_matches(RAW)
 df_all = pd.concat(matches_data.values(), ignore_index=True)
-full_data = {"Todos os Jogos (Compilado)": df_all}
+full_data = {"All games": df_all}
 full_data.update(matches_data)
 
-st.sidebar.header("Configurações do Filtro")
-selected_match = st.sidebar.radio("Selecione o Jogo", list(full_data.keys()), index=0)
+st.sidebar.header("Filter Configuration")
+selected_match = st.sidebar.radio("Select a match", list(full_data.keys()), index=0)
 
 st.sidebar.divider()
 
 # O NOVO SLICER (Filtro de passes para frente)
-apenas_frente = st.sidebar.checkbox("Mostrar apenas passes para frente", value=False)
+apenas_frente = st.sidebar.checkbox("Show only forward passes", value=False)
 
 # Pegamos os dados originais do jogo selecionado
 df_sel = full_data[selected_match]
@@ -432,35 +432,35 @@ if apenas_frente:
 col_stats, col_map = st.columns([1, 2], gap="large")
 
 with col_stats:
-    st.subheader("📊 Estatísticas Gerais")
+    st.subheader("📊 Stats")
     c1, c2, c3 = st.columns(3)
     c1.metric("Total", stats["total"])
-    c2.metric("Acertos", stats["certo"])
-    c3.metric("Precisão", f'{stats["acc"]:.1f}%')
+    c2.metric("Succesful", stats["certo"])
+    c3.metric("%", f'{stats["acc"]:.1f}%')
     
     st.divider()
-    st.subheader("🚀 Passes Progressivos")
+    st.subheader("🚀 Progressive Passes")
     p1, p2 = st.columns(2)
-    p1.metric("Tentados", stats["prog_tent"])
-    p2.metric("Acertados", stats["prog_acer"])
+    p1.metric("Attempts", stats["prog_tent"])
+    p2.metric("Successful", stats["prog_acer"])
     
     st.divider()
-    st.subheader("🎯 Entradas Terço Final")
+    st.subheader("🎯 Passes into the Final Third")
     f1, f2 = st.columns(2)
-    f1.metric("Tentados", stats["tf_tent"])
-    f2.metric("Acertados", stats["tf_acer"])
+    f1.metric("Attempts", stats["tf_tent"])
+    f2.metric("Sucessful", stats["tf_acer"])
     
     # SEÇÃO ALTERADA CONFORME SOLICITADO
     st.divider()
-    st.subheader("↕️ Direcionamento")
+    st.subheader("↕️ Direction")
     d1, d2, d3 = st.columns(3)
-    d1.metric("Para frente", stats["fwd"])
-    d2.metric("Para trás", stats["back"])
-    d3.metric("% Verticalidade", f'{stats["fwd_total_pct"]:.1f}%')
-    st.caption("A porcentagem representa os passes para frente em relação ao total de passes tentados.")
+    d1.metric("Forward", stats["fwd"])
+    d2.metric("Backward", stats["back"])
+    d3.metric("% Vertical", f'{stats["fwd_total_pct"]:.1f}%')
+    st.caption("This represent the % of forward passes.")
 
 with col_map:
     # Definimos o subtítulo com base no filtro ativo
-    label_filtro = " (Apenas para frente)" if apenas_frente else ""
-    st.subheader(f"Mapa de Passes{label_filtro}")
-    st.image(draw_pass_map(df_mapa, f"Mapa: {selected_match}"), width=640)
+    label_filtro = " (Only Forward)" if apenas_frente else ""
+    st.subheader(f"Pass Map{label_filtro}")
+    st.image(draw_pass_map(df_mapa, f"Map: {selected_match}"), width=640)

@@ -8,8 +8,10 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from matplotlib.lines import Line2D
 from matplotlib.patches import FancyArrowPatch
+
 st.set_page_config(layout="wide", page_title="Pass Map Dashboard")
 st.title("Pass Map Dashboard")
+
 # ==========================
 # Pitch / rules configuration
 # ==========================
@@ -17,6 +19,7 @@ GOAL_X = 120
 GOAL_Y = 40
 FINAL_THIRD_LINE_X = 80  # final third line: x=80
 PROGRESSIVE_THRESHOLD = 0.75  # Opta-like progressive rule
+
 RAW = """
 Angel vs IMG (40 Min)
 0:18 – Passe certo OK
@@ -49,6 +52,7 @@ x = 32.90, y = 52.97
 x = 41.05, y = 41.33
 x = 65.82, y = 40.83
 x = 48.20, y = 42.66
+
 Angel vs Orlando (40 min)
 2:56 – Pass certo OK
 x = 27.58, y = 52.47
@@ -140,6 +144,7 @@ x = 70.31, y = 71.92
 39:33 – pass certo OK
 x = 75.96, y = 37.34
 x = 88.76, y = 31.85
+
 Angel vs Weston (58:20)
 0:13 pass certo OK
 1:50 passe certo OK
@@ -194,6 +199,7 @@ x = 43.88, y = 34.02
 x = 40.22, y = 41.50
 x = 23.59, y = 50.14
 x = 77.95, y = 31.36
+
 Angles vs South Florida (1:03
 03:10 – pass certo OK
 05:20 – pass certo OK
@@ -229,16 +235,19 @@ x = 69.64, y = 79.90
 x = 42.05, y = 29.19
 x = 46.87, y = 5.26
 """
+
 MATCH_START_PREFIXES = ("angel vs", "angles vs")
 TIME_LINE_RE = re.compile(r"^\s*(\d{1,2}):(\d{2})\s*(?:[-–]\s*)?", re.IGNORECASE)
 COORD_RE = re.compile(
     r"x\s*=\s*([-+]?\d+(?:\.\d+)?)\s*,\s*y\s*=\s*([-+]?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
+
 def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
     lines = raw_text.splitlines()
     matches_lines: dict[str, list[str]] = {}
     current_match = None
+
     def normalize_match_name(line: str) -> str | None:
         lower = line.strip().lower()
         if not any(lower.startswith(p) for p in MATCH_START_PREFIXES):
@@ -247,13 +256,12 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
             rest = line.strip()[len("Angel vs") :].strip()
             opponent = rest.split("(")[0].strip()
             return f"Angel vs {opponent}"
-        # Angles vs South Florida (no closing parenthesis in the pasted text)
         if lower.startswith("angles vs"):
             rest = line.strip()[len("Angles vs") :].strip()
             opponent = rest.split("(")[0].strip()
             return f"Angles vs {opponent}"
         return None
-    # 1) Split RAW into match blocks
+
     for line in lines:
         match_name = normalize_match_name(line)
         if match_name is not None:
@@ -262,7 +270,7 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
             continue
         if current_match is not None:
             matches_lines[current_match].append(line)
-    # 2) Parse each match into passes rows
+
     out: dict[str, pd.DataFrame] = {}
     for match_name, match_lines in matches_lines.items():
         pass_success: list[bool] = []
@@ -270,7 +278,6 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
         for line in match_lines:
             ll = line.strip().lower()
             if TIME_LINE_RE.match(line):
-                # "errado" indicates unsuccessful; everything else counts as success.
                 if "errado" in ll:
                     pass_success.append(False)
                 else:
@@ -280,8 +287,10 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
                 x = float(cm.group(1))
                 y = float(cm.group(2))
                 coord_points.append((x, y))
+
         coord_pairs = len(coord_points) // 2
         n_passes = min(len(pass_success), coord_pairs)
+        
         if n_passes == 0:
             st.warning(f"No passes detected for {match_name}.")
             continue
@@ -290,6 +299,7 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
                 f"[{match_name}] Mismatch: headers={len(pass_success)}, coord_pairs={coord_pairs}. "
                 f"Using n_passes={n_passes} (truncated)."
             )
+
         passes = []
         for i in range(n_passes):
             start = coord_points[2 * i]
@@ -304,23 +314,26 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
                     "errado": (not pass_success[i]),
                 }
             )
+
         df = pd.DataFrame(passes)
         df["certo"] = ~df["errado"]
-        # Progressive rule (opta-like)
+        
+        # Regras de campo
         dist_inicio = np.sqrt((GOAL_X - df["x_start"]) ** 2 + (GOAL_Y - df["y_start"]) ** 2)
         dist_fim = np.sqrt((GOAL_X - df["x_end"]) ** 2 + (GOAL_Y - df["y_end"]) ** 2)
         df["progressive"] = dist_fim <= dist_inicio * PROGRESSIVE_THRESHOLD
-        # Final third entry: starts outside and ends inside
         df["into_final_third"] = (df["x_start"] < FINAL_THIRD_LINE_X) & (
             df["x_end"] >= FINAL_THIRD_LINE_X
         )
-        # Directions
         df["forward"] = df["x_end"] > df["x_start"]
         df["backward"] = df["x_end"] < df["x_start"]
         df["right"] = df["y_end"] > df["y_start"]
         df["left"] = df["y_end"] < df["y_start"]
+        
         out[match_name] = df
+
     return out
+
 def compute_stats(df: pd.DataFrame) -> dict:
     total_passes = len(df)
     successful = int(df["certo"].sum())
@@ -339,6 +352,7 @@ def compute_stats(df: pd.DataFrame) -> dict:
     backward_passes = int(df["backward"].sum())
     right_passes = int(df["right"].sum())
     left_passes = int(df["left"].sum())
+    
     return {
         "total_passes": total_passes,
         "successful_passes": successful,
@@ -356,31 +370,30 @@ def compute_stats(df: pd.DataFrame) -> dict:
         "right_passes": right_passes,
         "left_passes": left_passes,
     }
+
 def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     pitch = Pitch(pitch_type="statsbomb", pitch_color="#f5f5f5", line_color="#4a4a4a")
     fig, ax = pitch.draw(figsize=(6.8, 4.5))
     fig.set_dpi(100)
     ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.1, alpha=0.25)
-    # Stronger colors
+    
     for _, row in df.iterrows():
         if row["errado"]:
-            # Red (unsuccessful)
             color = (0.95, 0.18, 0.18, 0.70)
             width = 1.55
             headwidth = 2.25
             headlength = 2.25
         elif row["progressive"]:
-            # Blue (progressive)
             color = (0.15, 0.50, 1.00, 0.62)
             width = 1.70
             headwidth = 2.35
             headlength = 2.35
         else:
-            # Light gray (successful non-progressive)
             color = (0.78, 0.78, 0.78, 0.22)
             width = 1.25
             headwidth = 1.95
             headlength = 1.95
+            
         pitch.arrows(
             row["x_start"],
             row["y_start"],
@@ -392,7 +405,7 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
             headlength=headlength,
             ax=ax,
         )
-    # Title + legend (top-left)
+        
     ax.set_title(title, fontsize=12)
     legend_elements = [
         Line2D([0], [0], color=(0.15, 0.50, 1.00, 0.62), lw=2.5, label="Progressive Pass"),
@@ -412,7 +425,7 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
         labelspacing=0.5,
     )
     legend.get_frame().set_alpha(1.0)
-    # Attack direction arrow (middle-bottom)
+    
     arrow = FancyArrowPatch(
         (0.45, 0.05),
         (0.55, 0.05),
@@ -439,19 +452,36 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     img = Image.open(buf).copy()
     plt.close(fig)
     return img
+
 # ==========================
 # Build data for dashboard
 # ==========================
 matches_data = parse_matches(RAW)
-match_names = list(matches_data.keys())
-if not match_names:
+
+if not matches_data:
     st.error("No matches parsed. Check RAW input format.")
     st.stop()
+
+# --- NOVIDADE: Adicionando o compilado de todos os jogos ---
+# Concatena todos os DataFrames individuais em um só
+df_all = pd.concat(matches_data.values(), ignore_index=True)
+
+# Cria um novo dicionário garantindo que o compilado seja a primeira opção na lista
+matches_data_with_all = {"Todos os Jogos (Compilado)": df_all}
+matches_data_with_all.update(matches_data)
+matches_data = matches_data_with_all
+# -----------------------------------------------------------
+
+match_names = list(matches_data.keys())
+
 st.sidebar.header("Match selection")
 selected_match = st.sidebar.radio("Choose a match", match_names, index=0)
+
 df_selected = matches_data[selected_match]
 stats = compute_stats(df_selected)
+
 col_stats, col_map = st.columns([1, 2], gap="large")
+
 with col_stats:
     st.subheader("Statistics")
     c1, c2, c3, c4 = st.columns(4)
@@ -459,10 +489,12 @@ with col_stats:
     c2.metric("Successful", stats["successful_passes"])
     c3.metric("Accuracy", f'{stats["accuracy_pct"]:.1f}%')
     c4.metric("Unsuccessful", stats["unsuccessful_passes"])
+    
     st.divider()
     c5, c6 = st.columns(2)
     c5.metric("Progressive Passes", stats["progressive_passes"])
     c6.metric("Progressive % of Total", f'{stats["progressive_pct"]:.1f}%')
+    
     st.divider()
     st.subheader("Final Third (Entry)")
     t1, t2, t3, t4 = st.columns(4)
@@ -470,14 +502,17 @@ with col_stats:
     t2.metric("Successful", stats["final_third_success"])
     t3.metric("Unsuccessful", stats["final_third_unsuccess"])
     t4.metric("Accuracy", f'{stats["final_third_accuracy_pct"]:.1f}%')
+    
     st.divider()
     st.subheader("Pass Directions")
     d1, d2 = st.columns(2)
     d1.metric("Forward", stats["forward_passes"])
     d2.metric("Forward % of Total", f'{stats["forward_pct_total"]:.1f}%')
+    
     d3, d4 = st.columns(2)
     d3.metric("Backward", stats["backward_passes"])
     d4.metric("Right / Left", f'{stats["right_passes"]} / {stats["left_passes"]}')
+
 with col_map:
     img = draw_pass_map(df_selected, title=f"Pass Map - {selected_match}")
     st.subheader("Pass Map")

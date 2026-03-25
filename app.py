@@ -274,7 +274,7 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
         if lower.startswith("angel vs"):
             rest = line.strip()[len("Angel vs") :].strip()
             opponent = rest.split("(")[0].strip()
-            return f"Angel vs {opponent}"
+            return f"vs {opponent}"
         if lower.startswith("angles vs"):
             rest = line.strip()[len("Angles vs") :].strip()
             opponent = rest.split("(")[0].strip()

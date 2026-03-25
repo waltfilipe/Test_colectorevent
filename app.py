@@ -2,21 +2,20 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from mplsoccer import Pitch
 import pandas as pd
+import numpy as np
 
-# ==========================
-# Config
-# ==========================
 st.set_page_config(layout="wide")
 st.title("Pass Map + Statistics (All Matches)")
 
 GOAL_X = 120
 GOAL_Y = 40
 FINAL_THIRD_LINE_X = 80
+PROGRESSIVE_THRESHOLD = 0.75
 
-# ==========================
+# =====================================
 # INPUT (coords + erros compilados)
-# ==========================
 # coords = [start1, end1, start2, end2, ...]
+# =====================================
 coords = [(29.25, 20.38),
  (23.76, 12.9),
  (14.78, 31.52),
@@ -168,12 +167,11 @@ coords = [(29.25, 20.38),
  (42.05, 29.19),
  (46.87, 5.26)]
 
-# passes_errados = [numeros 1-indexados dos passes que são "errados"]
-passes_errados = [3, 15, 38, 52, 62, 67, 68, 72, 73, 74]
+passes_errados = [3, 15, 38, 52, 62, 67, 68, 72, 73, 74]  # 1-indexado
 
-# ==========================
-# Build DataFrame
-# ==========================
+# =====================================
+# DataFrame
+# =====================================
 passes = []
 for i in range(0, len(coords), 2):
     start = coords[i]
@@ -191,51 +189,63 @@ for i in range(0, len(coords), 2):
 
 df = pd.DataFrame(passes)
 df["errado"] = df["numero"].isin(passes_errados)
-df["certo"] = ~df["errado"]
 
-# Terco final = entra no terço final
+# Progresso (regra Opta do seu notebook)
+dist_inicio = np.sqrt((GOAL_X - df["x_start"]) ** 2 + (GOAL_Y - df["y_start"]) ** 2)
+dist_fim = np.sqrt((GOAL_X - df["x_end"]) ** 2 + (GOAL_Y - df["y_end"]) ** 2)
+df["progressivo"] = dist_fim <= dist_inicio * PROGRESSIVE_THRESHOLD
+
+# Terço final (entrada no terço final)
 df["into_final_third"] = (df["x_start"] < FINAL_THIRD_LINE_X) & (df["x_end"] >= FINAL_THIRD_LINE_X)
 
-# Direcoes
+# Direções
 df["pra_frente"] = df["x_end"] > df["x_start"]
 df["pra_tras"] = df["x_end"] < df["x_start"]
 df["pra_direita"] = df["y_end"] > df["y_start"]
 df["pra_esquerda"] = df["y_end"] < df["y_start"]
 
-# ==========================
-# Estatisticas pedidas
-# ==========================
+# =====================================
+# Estatísticas
+# =====================================
 total_passes = len(df)
-passes_certos = int(df["certo"].sum())
+passes_certos = int((~df["errado"]).sum())
 perc_acertos = (passes_certos / total_passes * 100.0) if total_passes else 0.0
 
-passes_terco_final = int(df["into_final_third"].sum())
+passes_pro_terco_final_total = int(df["into_final_third"].sum())
+passes_pro_terco_final_certos = int((df["into_final_third"] & ~df["errado"]).sum())
+passes_pro_terco_final_errados = int((df["into_final_third"] & df["errado"]).sum())
+perc_acerto_terco_final = (
+    passes_pro_terco_final_certos / passes_pro_terco_final_total * 100.0
+    if passes_pro_terco_final_total
+    else 0.0
+)
+
 passes_frente = int(df["pra_frente"].sum())
 passes_tras = int(df["pra_tras"].sum())
 passes_direita = int(df["pra_direita"].sum())
 passes_esquerda = int(df["pra_esquerda"].sum())
 
-# ==========================
-# Plot
-# ==========================
+# =====================================
+# Plot (mapa menor + cores fracas)
+# =====================================
 pitch = Pitch(pitch_type="statsbomb", pitch_color="#f5f5f5", line_color="#4a4a4a")
-fig, ax = pitch.draw(figsize=(12, 8))
+fig, ax = pitch.draw(figsize=(8, 5))  # mapa menor
 
-ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.5, alpha=0.25)
+ax.axvline(x=FINAL_THIRD_LINE_X, color="#FFD54F", linewidth=1.3, alpha=0.22)
 
 for _, row in df.iterrows():
     if row["errado"]:
-        color = (0.85, 0.2, 0.2, 0.85)  # vermelho
+        # vermelho fraco
+        color = (0.85, 0.2, 0.2, 0.30)
+        width = 1.6
+    elif row["progressivo"]:
+        # azul fraco (progressivo)
+        color = (0.3, 0.4, 0.9, 0.25)
         width = 1.8
     else:
-        color = (0.2, 0.75, 0.2, 0.75)  # verde
-
-        # destaca entradas no terço final
-        if row["into_final_third"]:
-            color = (0.1, 0.5, 0.9, 0.95)  # azul forte
-            width = 2.5
-        else:
-            width = 1.8
+        # cinza bem claro (certos não-progressivos)
+        color = (0.75, 0.75, 0.75, 0.22)
+        width = 1.4
 
     pitch.arrows(
         row["x_start"],
@@ -244,8 +254,8 @@ for _, row in df.iterrows():
         row["y_end"],
         color=color,
         width=width,
-        headwidth=3,
-        headlength=3,
+        headwidth=2.4,
+        headlength=2.4,
         ax=ax,
     )
 
@@ -254,19 +264,19 @@ ax.set_title("Pass Map (Compiled)")
 st.pyplot(fig, clear_figure=True)
 
 st.divider()
-st.subheader("Estatisticas")
+st.subheader("Estatísticas")
 
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Total de passes", total_passes)
 c2.metric("Passes certos", passes_certos)
 c3.metric("% de acertos", f"{perc_acertos:.1f}%")
-c4.metric("Entradas no terc final", passes_terco_final)
+c4.metric("Entram no terço final", passes_pro_terco_final_total)
 
-st.divider()
+st.caption(f"Terço final: certos={passes_pro_terco_final_certos}, errados={passes_pro_terco_final_errados}, %={perc_acerto_terco_final:.1f}%")
 
 c5, c6 = st.columns(2)
 c5.metric("Pra frente", passes_frente)
-c5.metric("Pra tras", passes_tras)
+c5.metric("Pra trás", passes_tras)
 
 c6.metric("Pra direita", passes_direita)
 c6.metric("Pra esquerda", passes_esquerda)

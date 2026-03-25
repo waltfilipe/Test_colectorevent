@@ -278,7 +278,7 @@ def parse_matches(raw_text: str) -> dict[str, pd.DataFrame]:
         if lower.startswith("angles vs"):
             rest = line.strip()[len("Angles vs") :].strip()
             opponent = rest.split("(")[0].strip()
-            return f"Angles vs {opponent}"
+            return f"vs {opponent}"
         return None
 
     for line in lines:
@@ -410,7 +410,7 @@ df_all = pd.concat(matches_data.values(), ignore_index=True)
 full_data = {"All games": df_all}
 full_data.update(matches_data)
 
-st.sidebar.header("Filter Configuration")
+st.sidebar.header("📋 Filter Configuration")
 selected_match = st.sidebar.radio("Select a match", list(full_data.keys()), index=0)
 
 st.sidebar.divider()

@@ -364,13 +364,13 @@ def draw_pass_map(df: pd.DataFrame, title: str) -> Image.Image:
     for _, row in df.iterrows():
         if row["errado"]:
             # Vermelho mais sólido
-            color, width = (0.95, 0.18, 0.18, 0.85), 1.55 
+            color, width = (0.95, 0.18, 0.18, 0.80), 1.55 
         elif row["progressive"]:
             # Azul Progressivo bem destacado (Alpha 0.95)
-            color, width = (0.15, 0.50, 1.00, 0.95), 1.80 
+            color, width = (0.15, 0.50, 1.00, 0.75), 1.80 
         else:
             # Passe Certo comum mais visível (Alpha 0.65)
-            color, width = (0.60, 0.60, 0.60, 0.65), 1.25 
+            color, width = (0.60, 0.60, 0.60, 0.50), 1.25 
             
         pitch.arrows(row["x_start"], row["y_start"], row["x_end"], row["y_end"],
                      color=color, width=width, headwidth=2, headlength=2, ax=ax)
